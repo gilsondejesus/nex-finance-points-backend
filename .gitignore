@@ -1,0 +1,8 @@
+
+node_modules/
+config/database.js
+.env
+.DS_Store
+Thumbs.db
+package-lock.json
+yarn.lock
