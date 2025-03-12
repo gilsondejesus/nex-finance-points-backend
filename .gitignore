@@ -1,6 +1,6 @@
 
 node_modules/
-config/database.js
+# config/database.js
 .env
 .DS_Store
 Thumbs.db
