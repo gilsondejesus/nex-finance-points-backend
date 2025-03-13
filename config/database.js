@@ -1,9 +1,8 @@
-
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
 
 export default {
-  dialect: 'mysql',
+  dialect: "mysql",
   host: process.env.DB_HOST,
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -12,8 +11,8 @@ export default {
     timestamps: true,
     underscored: true,
   },
-  timezone: '-03:00',
+  timezone: "-03:00",
   dialectOptions: {
-    decimalNumbers: true
-  }
+    decimalNumbers: true,
+  },
 };
