@@ -1,29 +1,31 @@
-import { Transaction } from '../models/index.js';
+import { Transaction } from "../models/index.js";
 
-export const userController = {
+const userController = {
   async getStatement(req, res) {
     try {
       const transactions = await Transaction.findAll({
         where: { user_id: req.user.id },
-        order: [['transactionDate', 'DESC']]
+        order: [["transactionDate", "DESC"]],
       });
       res.json(transactions);
     } catch (error) {
-      res.status(500).json({ error: 'Erro ao buscar extrato' });
+      res.status(500).json({ error: "Erro ao buscar extrato" });
     }
   },
 
   async getWallet(req, res) {
     try {
-      const total = await Transaction.sum('pointsValue', {
-        where: { 
+      const total = await Transaction.sum("pointsValue", {
+        where: {
           user_id: req.user.id,
-          status: 'Aprovado'
-        }
+          status: "Aprovado",
+        },
       });
       res.json({ total });
     } catch (error) {
-      res.status(500).json({ error: 'Erro ao buscar saldo' });
+      res.status(500).json({ error: "Erro ao buscar saldo" });
     }
-  }
+  },
 };
+
+export default userController;
