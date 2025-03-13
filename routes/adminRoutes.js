@@ -1,7 +1,7 @@
 import express from "express";
 import { auth, isAdmin } from "../middlewares/authMiddleware.js";
 import upload from "../middlewares/uploadMiddleware.js";
-import adminController from "../controllers/adminController.js";
+import { uploadFile, generateReport } from "../controllers/adminController.js";
 
 const router = express.Router();
 
@@ -10,8 +10,9 @@ router.post(
   auth,
   isAdmin,
   upload.single("file"),
-  adminController.uploadFile,
+  uploadFile
 );
-router.get("/report", auth, isAdmin, adminController.generateReport);
+
+router.get("/report", auth, isAdmin, generateReport);
 
 export default router;
