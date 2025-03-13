@@ -26,6 +26,7 @@ export const authController = {
 
       res.status(201).json({ token });
     } catch (error) {
+      console.error("Detalhes do erro:", error.errors);
       res.status(400).json({ error: "Erro no registro: " + error.message });
     }
   },
@@ -53,3 +54,5 @@ export const authController = {
     }
   },
 };
+
+export default authController;
