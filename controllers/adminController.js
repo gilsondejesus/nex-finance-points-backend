@@ -1,6 +1,31 @@
 import ExcelJS from "exceljs";
+import { Op } from "sequelize";
 import { User, Transaction } from "../models/index.js";
 
+// Validação e formatação do CPF
+const validateAndFormatCPF = (cpf) => {
+  const cleaned = cpf.replace(/\D/g, "");
+
+  if (cleaned.length !== 11) {
+    throw new Error(`CPF inválido: ${cpf}`);
+  }
+
+  return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+};
+
+// Validação e formatação de data
+const parseExcelDate = (dateString) => {
+  const [day, month, year] = dateString.split("/"); // Corrigido para split por barra
+  const date = new Date(`${year}-${month}-${day}`);
+
+  if (isNaN(date)) {
+    throw new Error(`Formato de data inválido: ${dateString}`);
+  }
+
+  return date;
+};
+
+// Upload de arquivo
 export const uploadFile = async (req, res) => {
   try {
     const workbook = new ExcelJS.Workbook();
@@ -9,52 +34,220 @@ export const uploadFile = async (req, res) => {
     const worksheet = workbook.worksheets[0];
     const data = [];
 
+    // Validação do cabeçalho
+    const headerRow = worksheet.getRow(1);
+    const expectedHeaders = [
+      "CPF",
+      "Descrição da transação",
+      "Data da transação",
+      "Valor em pontos",
+      "Valor em dinheiro",
+      "Status",
+    ];
+
+    headerRow.eachCell((cell, colNumber) => {
+      if (cell.value !== expectedHeaders[colNumber - 1]) {
+        throw new Error(`Cabeçalho inválido na coluna ${colNumber}`);
+      }
+    });
+
+    // Processamento das linhas
     worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
       if (rowNumber === 1) return;
 
       data.push({
-        CPF: row.getCell(1).text,
-        Descrição: row.getCell(2).text,
-        Data: row.getCell(3).text,
-        Pontos: row.getCell(4).text,
-        Dinheiro: row.getCell(5).text,
-        Status: row.getCell(6).text,
+        cpf: row.getCell(1).text,
+        descricao: row.getCell(2).text,
+        dataTransacao: row.getCell(3).text,
+        pontos: row.getCell(4).text,
+        dinheiro: row.getCell(5).text,
+        status: row.getCell(6).text,
       });
     });
 
-    for (const row of data) {
-      let cpf = row.CPF.replace(/\D/g, "");
-      if (cpf.length !== 11) throw new Error(`CPF inválido: ${row.CPF}`);
-      cpf = cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    let successCount = 0;
+    const errors = [];
 
-      const user = await User.findOne({ where: { cpf } });
-      if (!user) continue;
+    for (const [index, row] of data.entries()) {
+      try {
+        // Validação do CPF
+        const cpfFormatado = validateAndFormatCPF(row.cpf);
 
-      const transactionDate = new Date(row.Data.split("-").reverse().join("-"));
-      const pointsValue = parseFloat(row.Pontos.replace(",", "."));
-      const moneyValue = parseFloat(
-        row.Dinheiro.replace(/\./g, "").replace(",", "."),
-      );
+        // Validação da Data (DD/MM/YYYY)
+        const dataTransacao = parseExcelDate(row.dataTransacao);
 
-      await Transaction.create({
-        user_id: user.id,
-        description: row.Descrição,
-        transactionDate,
-        pointsValue,
-        moneyValue,
-        status: row.Status,
-      });
+        // Validação dos Pontos (10,000)
+        const pontos = parseFloat(row.pontos.replace(",", "."));
+        if (isNaN(pontos)) {
+          throw new Error("Formato de pontos inválido");
+        }
+
+        // Validação do Dinheiro (10.000,00 ou 10000)
+        const dinheiroStr = row.dinheiro.replace(/\./g, ""); // Remove pontos de milhar
+        const dinheiro = parseFloat(dinheiroStr.replace(",", ".")); // Trata vírgula decimal
+
+        if (isNaN(dinheiro)) {
+          throw new Error("Formato monetário inválido");
+        }
+
+        // Verifica centavos apenas se houver vírgula
+        if (dinheiroStr.includes(",")) {
+          const partes = dinheiroStr.split(",");
+          if (partes[1].length !== 2) {
+            throw new Error(
+              "Formato monetário inválido (centavos devem ter 2 dígitos)",
+            );
+          }
+        }
+
+        // Validação do Status
+        const statusValidos = ["Aprovado", "Reprovado", "Em avaliação"];
+        if (!statusValidos.includes(row.status)) {
+          throw new Error("Status inválido");
+        }
+
+        // Buscar usuário
+        const user = await User.findOne({ where: { cpf: cpfFormatado } });
+        if (!user) {
+          throw new Error("Usuário não encontrado");
+        }
+
+        // Criar transação
+        await Transaction.create({
+          user_id: user.id,
+          description: row.descricao,
+          transactionDate: dataTransacao,
+          pointsValue: pontos,
+          moneyValue: dinheiro,
+          status: row.status,
+        });
+
+        successCount++;
+      } catch (error) {
+        errors.push({
+          linha: index + 2,
+          erro: error.message,
+          dados: row,
+        });
+      }
     }
 
     res.status(200).json({
-      message: `${data.length} transações processadas com sucesso!`,
-      importedCount: data.length,
+      message: `Processamento concluído: ${successCount} sucesso(s), ${errors.length} erro(s)`,
+      successCount,
+      errors,
     });
   } catch (err) {
     res.status(400).json({
       error: "Erro no processamento do arquivo",
       details: err.message,
-      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    });
+  }
+};
+
+// Gerar relatório com filtros
+export const generateReport = async (req, res) => {
+  try {
+    const {
+      cpf,
+      startDate,
+      endDate,
+      minPoints,
+      maxPoints,
+      minMoney,
+      maxMoney,
+      status,
+    } = req.query;
+
+    const where = {};
+    const userWhere = {};
+
+    // Filtro de CPF
+    if (cpf) {
+      try {
+        userWhere.cpf = validateAndFormatCPF(cpf);
+      } catch (error) {
+        return res.status(400).json({ error: error.message });
+      }
+    }
+
+    // Filtro de data
+    if (startDate || endDate) {
+      where.transactionDate = {};
+
+      if (startDate) {
+        const [day, month, year] = startDate.split("/");
+        where.transactionDate[Op.gte] = new Date(`${year}-${month}-${day}`);
+      }
+
+      if (endDate) {
+        const [day, month, year] = endDate.split("/");
+        where.transactionDate[Op.lte] = new Date(`${year}-${month}-${day}`);
+      }
+    }
+
+    // Filtro de pontos
+    if (minPoints || maxPoints) {
+      where.pointsValue = {};
+      if (minPoints) where.pointsValue[Op.gte] = parseFloat(minPoints);
+      if (maxPoints) where.pointsValue[Op.lte] = parseFloat(maxPoints);
+    }
+
+    // Filtro de dinheiro
+    if (minMoney || maxMoney) {
+      where.moneyValue = {};
+      if (minMoney) where.moneyValue[Op.gte] = parseFloat(minMoney);
+      if (maxMoney) where.moneyValue[Op.lte] = parseFloat(maxMoney);
+    }
+
+    // Filtro de status
+    if (status) {
+      where.status = status;
+    }
+
+    const transactions = await Transaction.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "name", "cpf"],
+          where: userWhere,
+        },
+      ],
+      order: [["transactionDate", "DESC"]],
+    });
+
+    // Formatação da resposta
+    const formatted = transactions.map((trans) => ({
+      CPF: trans.user.cpf,
+      Descrição: trans.description,
+      Data: trans.transactionDate.toLocaleDateString("pt-BR"),
+      Pontos: trans.pointsValue.toLocaleString("pt-BR", {
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3,
+      }),
+      Dinheiro: trans.moneyValue.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      }),
+      Status: trans.status,
+    }));
+
+    res.status(200).json({
+      total: formatted.length,
+      periodo:
+        startDate || endDate
+          ? `${startDate || "Início"} à ${endDate || "Atual"}`
+          : "Todos os registros",
+      transacoes: formatted,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Erro ao gerar relatório",
+      details: error.message,
+      ...(process.env.NODE_ENV === "development" && { stack: error.stack }),
     });
   }
 };
