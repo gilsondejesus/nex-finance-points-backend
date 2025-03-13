@@ -1,15 +1,14 @@
 import { Sequelize } from "sequelize";
 import config from "../config/database.js";
+import { User } from "./User.js";
+import { Transaction } from "./Transaction.js";
 
 const sequelize = new Sequelize(config);
 
-import User from "./User.js";
-import Transaction from "./Transaction.js";
+User.init(sequelize);
+Transaction.init(sequelize);
 
-User.initModel(sequelize);
-Transaction.initModel(sequelize);
-
-User.associate(sequelize.models);
-Transaction.associate(sequelize.models);
+User.associate({ Transaction });
+Transaction.associate({ User });
 
 export { sequelize, User, Transaction };
