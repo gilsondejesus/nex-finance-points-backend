@@ -1,23 +1,44 @@
 import { Model, DataTypes } from "sequelize";
 
-class Transaction extends Model {
+export class Transaction extends Model {
   static init(sequelize) {
     super.init(
       {
-        description: DataTypes.STRING,
-        transactionDate: DataTypes.DATE,
-        pointsValue: DataTypes.DECIMAL(10, 3),
-        moneyValue: DataTypes.DECIMAL(10, 2),
-        status: DataTypes.ENUM("Aprovado", "Reprovado", "Em avaliação"),
+        description: {
+          type: DataTypes.STRING,
+          allowNull: false,
+        },
+        transactionDate: {
+          type: DataTypes.DATE,
+          allowNull: false,
+        },
+        pointsValue: {
+          type: DataTypes.DECIMAL(10, 3),
+          allowNull: false,
+        },
+        moneyValue: {
+          type: DataTypes.DECIMAL(10, 2),
+          allowNull: false,
+        },
+        status: {
+          type: DataTypes.ENUM("Aprovado", "Reprovado", "Em avaliação"),
+          allowNull: false,
+        },
       },
-      { sequelize },
+      {
+        sequelize,
+        modelName: "Transaction",
+        tableName: "Transactions",
+        timestamps: true,
+        underscored: true,
+      },
     );
+  }
 
-    this.belongsTo(this.sequelize.models.User, {
+  static associate(models) {
+    this.belongsTo(models.User, {
       foreignKey: "user_id",
       as: "user",
     });
   }
 }
-
-export default Transaction;
