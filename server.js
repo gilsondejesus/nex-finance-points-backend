@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import sequelize from "./config/database.js";
+import { sequelize } from "./models/index.js";
 
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -17,16 +17,14 @@ app.use("/auth", authRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
 
-const PORT = process.env.PORT || 3306;
+const PORT = process.env.PORT || 3000;
 
-sequelize
-  .sync()
+sequelize.sync()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`✅ Servidor rodando na porta ${PORT}`);
-      console.log(`📡 Endereço: http://localhost:${PORT}`);
     });
   })
-  .catch((error) => {
+  .catch(error => {
     console.error("❌ Erro ao conectar ao banco:", error);
   });
