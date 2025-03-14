@@ -13,16 +13,10 @@ const validateAndFormatCPF = (cpf) => {
   return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
 };
 
-// Validação e formatação de data
 const parseExcelDate = (dateString) => {
-  const [day, month, year] = dateString.split("/"); // Corrigido para split por barra
-  const date = new Date(`${year}-${month}-${day}`);
-
-  if (isNaN(date)) {
-    throw new Error(`Formato de data inválido: ${dateString}`);
-  }
-
-  return date;
+  const [day, month, year] = dateString.split("/");
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  return utcDate.toISOString().split("T")[0];
 };
 
 // Upload de arquivo
@@ -77,7 +71,7 @@ export const uploadFile = async (req, res) => {
         const dataTransacao = parseExcelDate(row.dataTransacao);
 
         // Validação dos Pontos (10,000)
-        const pontos = parseFloat(row.pontos.replace(",", "."));
+        const pontos = parseFloat(row.pontos.toString().replace(",", "."));
         if (isNaN(pontos)) {
           throw new Error("Formato de pontos inválido");
         }
