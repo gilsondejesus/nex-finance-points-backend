@@ -9,7 +9,7 @@ export class Transaction extends Model {
           allowNull: false,
         },
         transactionDate: {
-          type: DataTypes.DATE,
+          type: DataTypes.DATEONLY,
           allowNull: false,
         },
         pointsValue: {
