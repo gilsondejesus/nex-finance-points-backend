@@ -9,7 +9,16 @@ import adminRoutes from "./routes/adminRoutes.js";
 
 const app = express();
 
-app.use(cors());
+// Configuração detalhada do CORS
+app.use(
+  cors({
+    origin: "http://localhost:5173", // Frontend Vite
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // Se estiver usando cookies/tokens
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -19,12 +28,13 @@ app.use("/admin", adminRoutes);
 
 const PORT = process.env.PORT || 3000;
 
-sequelize.sync()
+sequelize
+  .sync()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`✅ Servidor rodando na porta ${PORT}`);
     });
   })
-  .catch(error => {
+  .catch((error) => {
     console.error("❌ Erro ao conectar ao banco:", error);
   });
