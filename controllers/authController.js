@@ -5,8 +5,9 @@ import { User } from "../models/index.js";
 export const authController = {
   async register(req, res) {
     try {
-      // Validação de CPF
-      const cpfRegex = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
+      // Aceita CPF com ou sem máscara
+      const cpfRegex = /^\d{11}$|^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
+
       if (!cpfRegex.test(req.body.cpf)) {
         return res.status(400).json({ error: "Formato de CPF inválido" });
       }
