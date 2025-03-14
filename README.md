@@ -1,5 +1,7 @@
 📁 Backend - Nex-Points
 
+Vídeo de Apresentação do Projeto: https://drive.google.com/file/d/1X_wcRFx2ZTG3-JcoEdyca_w2kPHsdUdV/view
+
 Visão Geral
 
 API Node.js para gestão de pontos com autenticação JWT, desenvolvida com Express e Sequelize. Integra com banco de dados MySQL e oferece endpoints RESTful para:
