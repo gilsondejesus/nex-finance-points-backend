@@ -10,15 +10,32 @@ const userController = {
       // Filtro de status
       if (status) where.status = status;
 
-      // Filtro de data
       if (startDate || endDate) {
         where.transactionDate = {};
-        if (startDate) where.transactionDate[Op.gte] = new Date(startDate);
-        if (endDate) where.transactionDate[Op.lte] = new Date(endDate);
+
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setUTCHours(0, 0, 0, 0);
+          where.transactionDate[Op.gte] = start;
+        }
+
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setUTCHours(23, 59, 59, 999);
+          where.transactionDate[Op.lte] = end;
+        }
       }
 
       const transactions = await Transaction.findAll({
         where,
+        attributes: [
+          "id",
+          "description",
+          "transactionDate",
+          "pointsValue",
+          "moneyValue",
+          "status",
+        ],
         order: [["transactionDate", "DESC"]],
       });
       res.json(transactions);
