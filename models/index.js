@@ -1,5 +1,5 @@
 import { Sequelize } from "sequelize";
-import config from "../config/database.js";
+import config from "../config/database.cjs";
 import { User } from "./User.js";
 import { Transaction } from "./Transaction.js";
 

@@ -55,7 +55,7 @@ module.exports = {
         allowNull: false,
       },
       transactionDate: {
-        type: Sequelize.DATE,
+        type: Sequelize.DATEONLY, // Alterado para DATEONLY
         allowNull: false,
       },
       pointsValue: {
