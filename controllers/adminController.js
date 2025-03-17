@@ -70,27 +70,24 @@ export const uploadFile = async (req, res) => {
         // Validação da Data (DD/MM/YYYY)
         const dataTransacao = parseExcelDate(row.dataTransacao);
 
-        // Validação dos Pontos (10,000)
+        // Validação dos Pontos
         const pontos = parseFloat(row.pontos.toString().replace(",", "."));
         if (isNaN(pontos)) {
           throw new Error("Formato de pontos inválido");
         }
 
-        // Validação do Dinheiro (10.000,00 ou 10000)
-        const dinheiroStr = row.dinheiro.replace(/\./g, ""); // Remove pontos de milhar
-        const dinheiro = parseFloat(dinheiroStr.replace(",", ".")); // Trata vírgula decimal
+        // Validação do Dinheiro
+        const dinheiroStr = row.dinheiro.replace(/\./g, "");
+        const dinheiro = parseFloat(dinheiroStr.replace(",", "."));
 
         if (isNaN(dinheiro)) {
           throw new Error("Formato monetário inválido");
         }
 
-        // Verifica centavos apenas se houver vírgula
         if (dinheiroStr.includes(",")) {
           const partes = dinheiroStr.split(",");
           if (partes[1].length !== 2) {
-            throw new Error(
-              "Formato monetário inválido (centavos devem ter 2 dígitos)",
-            );
+            throw new Error("Centavos devem ter 2 dígitos");
           }
         }
 
@@ -166,18 +163,20 @@ export const generateReport = async (req, res) => {
       }
     }
 
-    // Filtro de data
+    // Filtro de data corrigido
     if (startDate || endDate) {
       where.transactionDate = {};
 
       if (startDate) {
-        const [day, month, year] = startDate.split("/");
-        where.transactionDate[Op.gte] = new Date(`${year}-${month}-${day}`);
+        const [year, month, day] = startDate.split("-");
+        where.transactionDate[Op.gte] = new Date(year, month - 1, day);
       }
 
       if (endDate) {
-        const [day, month, year] = endDate.split("/");
-        where.transactionDate[Op.lte] = new Date(`${year}-${month}-${day}`);
+        const [year, month, day] = endDate.split("-");
+        const endOfDay = new Date(year, month - 1, day);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.transactionDate[Op.lte] = endOfDay;
       }
     }
 
@@ -208,26 +207,34 @@ export const generateReport = async (req, res) => {
           as: "user",
           attributes: ["id", "name", "cpf"],
           where: userWhere,
+          required: true,
         },
       ],
       order: [["transactionDate", "DESC"]],
     });
 
-    // Formatação da resposta
-    const formatted = transactions.map((trans) => ({
-      CPF: trans.user.cpf,
-      Descrição: trans.description,
-      Data: trans.transactionDate.toLocaleDateString("pt-BR"),
-      Pontos: trans.pointsValue.toLocaleString("pt-BR", {
-        minimumFractionDigits: 3,
-        maximumFractionDigits: 3,
-      }),
-      Dinheiro: trans.moneyValue.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      }),
-      Status: trans.status,
-    }));
+    // Formatação melhorada
+    const formatted = transactions.map((trans) => {
+      const transactionDate =
+        trans.transactionDate instanceof Date
+          ? trans.transactionDate
+          : new Date(trans.transactionDate);
+
+      return {
+        CPF: trans.user?.cpf || "N/A",
+        Descrição: trans.description,
+        Data: transactionDate.toLocaleDateString("pt-BR"),
+        Pontos: Number(trans.pointsValue).toLocaleString("pt-BR", {
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
+        }),
+        Dinheiro: Number(trans.moneyValue).toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }),
+        Status: trans.status,
+      };
+    });
 
     res.status(200).json({
       total: formatted.length,
@@ -238,6 +245,7 @@ export const generateReport = async (req, res) => {
       transacoes: formatted,
     });
   } catch (error) {
+    console.error("Erro detalhado:", error);
     res.status(500).json({
       error: "Erro ao gerar relatório",
       details: error.message,
